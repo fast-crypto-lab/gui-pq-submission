@@ -34,8 +34,12 @@ void pack_tails( uint8_t * r , const uint8_t s_tail[_K][_TAIL_BYTE] )
 		temp1 <<= remains;
 		temp2 |= temp1;
 
-		memcpy( r , &temp2 , _TAIL_BYTE + 1 );
-		r += _TAIL_BYTE+1;
+#if 8 <= _TAIL_BYTE
+	memcpy( r , &temp2 , _TAIL_BYTE );
+#else
+	memcpy( r , &temp2 , _TAIL_BYTE + 1 );
+#endif
+                r += ((_TAIL+remains)+7)/8;
 	}
 }
 

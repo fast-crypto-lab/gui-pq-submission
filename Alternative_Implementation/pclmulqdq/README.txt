@@ -31,7 +31,7 @@ The single algorithms gui-genkey, gui-sign and gui-verify are used as follows.
   gui-genkey generates a Gui key pair and stores it in the files pk.txt and sk.txt.
   If seed_file is set, the algorithm uses the content of seed_file as seed for the PRNG and outputs the used randomness in the terminal.
   (2)
-  Run:  gui-sign sk.txt  file_to_be_signed [seed_file] > signaturegile.txt
+  Run:  gui-sign sk.txt  file_to_be_signed [seed_file]
   gui-sign reads in the secret key from sk.txt and the message from file_to_be_signed.
   If seed_file is set, rainbow-sign uses the content of seed_file as seed for the PRNG and outputs the used randomness in the terminal.
   (3)

@@ -116,11 +116,11 @@ static inline void poly_add( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , u
 ///////////////////////////////////////////////
 
 
-static inline void poly_muladd_sp_poly( uint8_t * poly , const uint8_t * sparse_poly , const unsigned * degree , unsigned n_sp_terms , unsigned sp_raise ,
+static inline void poly_muladd_sp_poly( uint8_t * poly , const uint8_t * sparse_poly , const unsigned * degree , unsigned sp_terms , unsigned sp_raise ,
 		const uint8_t * c )
 {
 	uint8_t tmp[_GFSIZE] ;
-	for(unsigned i=0;i<n_sp_terms;i++) {
+	for(unsigned i=0;i<sp_terms;i++) {
 		BGFMUL(tmp,sparse_poly+i*_GFSIZE,c);
 		gf256v_add( poly + (degree[i]+sp_raise)*_GFSIZE , tmp , _GFSIZE );
 	}
@@ -132,6 +132,31 @@ static inline void poly_add_sp_poly( uint8_t * poly , const uint8_t * sparse_pol
 		gf256v_add( poly + (degree[i]+sp_raise)*_GFSIZE , sparse_poly + i*_GFSIZE , _GFSIZE );
 	}
 }
+
+/// normalized sparse polynomial
+static inline void poly_mod_nsp_poly( uint8_t * poly , unsigned deg_poly , const uint8_t * nsp_poly , const unsigned * degree , unsigned nsp_terms )
+{
+	unsigned sp_max_deg = degree[nsp_terms-1];
+	for(unsigned i=deg_poly;i>=sp_max_deg;i--) {
+		uint8_t * term = poly + i*_GFSIZE;
+		poly_muladd_sp_poly( poly + (i-sp_max_deg)*_GFSIZE, nsp_poly , degree , nsp_terms-1 ,0 , term );
+	}
+}
+
+
+/// normalized sparse polynomial
+static inline void poly_square_mod_nsp_poly( uint8_t * rpoly , const uint8_t * poly , unsigned deg_poly ,
+					const uint8_t * nsp_poly , const unsigned * degree , unsigned nsp_terms )
+{
+	BGFSQU(rpoly,poly);
+	for(unsigned i=1;i<=deg_poly;i++) {
+		gf256v_add( rpoly+(i*2-1)*_GFSIZE , rpoly+(i*2-1)*_GFSIZE , _GFSIZE );
+		BGFSQU(rpoly+(i*2)*_GFSIZE,poly+i*_GFSIZE);
+	}
+
+	poly_mod_nsp_poly( rpoly , deg_poly*2 , nsp_poly , degree , nsp_terms );
+}
+
 
 
 
@@ -179,6 +204,49 @@ unsigned _get_deg1poly_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t *
 ////////////////////////////////////////////////////////////////
 
 
+#if _DEG > 130
+#define _SPARSE_POLY_REDUCE_
+#endif
+
+#if defined( _SPARSE_POLY_REDUCE_ )
+
+//static inline void poly_mod_nsp_poly( uint8_t * poly , unsigned deg_poly , const uint8_t * nsp_poly , const unsigned * degree , unsigned nsp_terms )
+/// normalized sparse polynomial
+//static inline void poly_square_mod_nsp_poly( uint8_t * rpoly , const uint8_t * poly , unsigned deg_poly ,
+//                                        const uint8_t * nsp_poly , const unsigned * degree , unsigned nsp_terms )
+
+static
+void Calc_X_to_2_to_pow_in_ideal( uint8_t * Xext_X , unsigned pow , const uint8_t * nor_sparse_poly , const unsigned * degree , unsigned n_sp_terms )
+{
+
+	uint8_t * buf1 = (uint8_t *) malloc( _DEG*_GFSIZE*2 );
+	uint8_t * buf2 = (uint8_t *) malloc( _DEG*_GFSIZE*2 );
+
+	memset( buf1 , 0 , _DEG*_GFSIZE*2 );
+	unsigned st_deg = 0;
+	while( (1<<st_deg)<=_DEG ) st_deg++;
+	buf1[(1<<st_deg)*_GFSIZE] = 1;
+	poly_mod_nsp_poly( buf1 , 1<<st_deg , nor_sparse_poly , degree , n_sp_terms );
+
+	uint8_t * ptr1 = buf1;
+	uint8_t * ptr2 = buf2;
+	for(unsigned i= st_deg;i<pow;i++) {
+		poly_square_mod_nsp_poly( ptr2 , ptr1 , _DEG_1 , nor_sparse_poly , degree , n_sp_terms );
+		uint8_t * ptr_tmp=ptr1;
+		ptr1=ptr2;
+		ptr2=ptr_tmp;
+	}
+	memcpy( Xext_X , ptr1 , _GFSIZE*_DEG );
+
+	// clean
+	free( buf1 );
+	free( buf2 );
+}
+
+
+#else
+
+
 #if defined( _GUI_2_184_D33_V16_A16_K2 )
 #define _STEP 4
 #elif defined( _GUI_2_312_D129_V20_A24_K2 )
@@ -189,9 +257,7 @@ unsigned _get_deg1poly_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t *
 error.
 #endif
 
-
-
-#if defined( _STEP )
+//#if defined( _STEP )
 
 static inline
 void _generate_squ_table( uint8_t * X_squ[] , const uint8_t * nor_sparse_poly , const unsigned * degree , unsigned n_sp_terms )
@@ -290,10 +356,8 @@ void Calc_X_to_2_to_pow_in_ideal( uint8_t * Xext_X , unsigned pow , const uint8_
 	free( squ_tab );
 }
 
-#else
-error.
 
-#endif
+#endif   /// definned( _SPARSE_POLY_REDUCE_ )
 
 
 
@@ -314,7 +378,7 @@ unsigned find_unique_root_sparse_poly( uint8_t * root , const uint8_t * sparse_p
 	/// residue_poly = 1X^deg + ....
 	/// Xext_X = ?X^(deg-1) + .....
 
-	uint8_t residue_poly[_TERMS*_GFSIZE] = {0};
+	uint8_t residue_poly[_TERMS*_GFSIZE]  = {0};
 	poly_add_sp_poly( residue_poly , ncpoly , degree , n_sp_terms , 0 );
 	poly_mul( residue_poly , residue_poly , _DEG_1 , Xext_X+_DEG_1*_GFSIZE ); /// omit the term of max degree
 	poly_add( residue_poly , Xext_X , _DEG_1 , 1 );

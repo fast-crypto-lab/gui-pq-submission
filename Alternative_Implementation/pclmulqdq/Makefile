@@ -3,12 +3,12 @@ CXX=   g++
 LD=    gcc
 
 
-#PROJ = amd64
-#
-#ifdef REF
-#	PROJ = ref
-#endif
-PROJ=Gui-184
+PROJ = Gui-184
+
+ifdef REF
+	PROJ = ref
+endif
+
 
 
 PROJ_DIR = ./$(PROJ)
@@ -83,5 +83,4 @@ tables:
 	cd supplement; make
 
 clean:
-#	rm *.o *-test *-benchmark PQCgenKAT_sign gui-genkey gui-sign gui-verify;
-	rm *.o PQCgenKAT_sign gui-genkey gui-sign gui-verify;
+	rm *.o *-test *-benchmark PQCgenKAT_sign gui-genkey gui-sign gui-verify;

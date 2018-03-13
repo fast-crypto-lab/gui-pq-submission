@@ -1,11 +1,11 @@
 #ifndef _GUI_CONFIG_H_
 #define _GUI_CONFIG_H_
 
-
-//#define _GUI_2_240_D9_V16_A16
-//#define _GUI_2_184_D33_V16_A16_K2
-//#define _GUI_2_312_D129_V20_A24_K2
 #define _GUI_2_448_D513_V28_A32_K2
+//#define _GUI_2_184_D33_V16_A16_K2
+//#define _GUI_2_240_D9_V16_A16
+//#define _GUI_2_312_D129_V20_A24_K2
+//#define _GUI_2_448_D513_V28_A32_K2
 
 
 #if defined _GUI_2_240_D9_V16_A16
