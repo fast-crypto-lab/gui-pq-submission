@@ -39,7 +39,7 @@ void pack_tails( uint8_t * r , const uint8_t s_tail[_K][_TAIL_BYTE] )
 #else
 		memcpy( r , &temp2 , _TAIL_BYTE + 1 );
 #endif
-                r += ((_TAIL+remains)+7)/8;
+		r += ((_TAIL+remains)+7)/8;
 	}
 }
 
@@ -70,11 +70,11 @@ void split_tails( uint8_t s_tail[_K][_TAIL_BYTE] , const uint8_t * a )
 /// algorithm 2
 unsigned gui_sign( uint8_t * signature , const uint8_t * sec_key , const uint8_t * digest )
 {
-	uint8_t sha2_digest[_HASH_LEN] __attribute__((aligned(32)));
+	uint8_t sha2_digest[_HASH_LEN] ;
 	memcpy( sha2_digest , digest , _HASH_LEN );
 	unsigned hash_counter = 0;
-	uint8_t dd[_PUB_M_BYTE] __attribute__((aligned(32)));
-	uint8_t ss[_PUB_N_BYTE] __attribute__((aligned(32))) = {0};
+	uint8_t dd[_PUB_M_BYTE] ;
+	uint8_t ss[_PUB_N_BYTE]  = {0};
 	uint8_t s_tail[_K][ _TAIL_BYTE ];
 
 	unsigned r = 1;
@@ -95,18 +95,18 @@ unsigned gui_sign( uint8_t * signature , const uint8_t * sec_key , const uint8_t
 /// algorithm 4
 unsigned gui_verify( const uint8_t * pub_key , const uint8_t * signature , const uint8_t * digest )
 {
-	uint8_t sha2_digest[_HASH_LEN] __attribute__((aligned(32)));
+	uint8_t sha2_digest[_HASH_LEN] ;
 	memcpy( sha2_digest , digest , _HASH_LEN );
 	unsigned hash_counter = 0;
-	uint8_t dd[_K][((_PUB_M_BYTE+31)/32)*32]  __attribute__((aligned(32)));
+	uint8_t dd[_K][((_PUB_M_BYTE+31)/32)*32]  ;
 	for(unsigned i=0;i<_K;i++) {
 		sha2_chain_byte( dd[i] , _PUB_M_BYTE , &hash_counter , sha2_digest );
 	}
 	uint8_t s_tails[_K][ _TAIL_BYTE ];
 	split_tails( s_tails , signature + _PUB_M_BYTE );
 
-	uint8_t temp_sig[_SIGNATURE_BYTE] __attribute__((aligned(32)));
-	uint8_t temp_pub[_PUB_M_BYTE] __attribute__((aligned(32)));
+	uint8_t temp_sig[_SIGNATURE_BYTE] ;
+	uint8_t temp_pub[_PUB_M_BYTE] ;
 	memcpy( temp_sig , signature , _PUB_M_BYTE );
 	for(int i=_K-1;i>=0;i--) {
 		memcpy( temp_sig + _PUB_M_BYTE , s_tails[i] , _TAIL_BYTE );
@@ -122,8 +122,8 @@ unsigned gui_verify( const uint8_t * pub_key , const uint8_t * signature , const
 static inline
 unsigned _gui_sign_salt_core( uint8_t * signature , const uint8_t * sec_key , const uint8_t * digest , const uint8_t * minus , const uint8_t * vinegar )
 {
-	uint8_t dd[_PUB_M_BYTE] __attribute__((aligned(32)));
-	uint8_t ss[_PUB_N_BYTE] __attribute__((aligned(32))) = {0};
+	uint8_t dd[_PUB_M_BYTE] ;
+	uint8_t ss[_PUB_N_BYTE]  = {0};
 	uint8_t s_tail[_K][ _TAIL_BYTE ];
 
 	unsigned r = 1;
@@ -133,6 +133,8 @@ unsigned _gui_sign_salt_core( uint8_t * signature , const uint8_t * sec_key , co
 		gf256v_add( dd , ss , _PUB_M_BYTE );
 
 		r = InvHFEv_( ss , (const gui_key *) sec_key , dd , minus , vinegar );
+		minus += _MINUS_BYTE;
+		vinegar += _VINEGAR_BYTE;
 		if( 0 == r ) return 0;
 
 		memcpy( s_tail[i] , ss + _PUB_M_BYTE , _TAIL_BYTE );
@@ -146,17 +148,17 @@ unsigned _gui_sign_salt_core( uint8_t * signature , const uint8_t * sec_key , co
 /// algorithm 6
 unsigned gui_sign_salt( uint8_t * signature , const uint8_t * sec_key , const uint8_t * _digest )
 {
-	uint8_t digest_salt[_HASH_LEN + _SALT_BYTE ] __attribute__((aligned(32))) = {0};
+	uint8_t digest_salt[_HASH_LEN + _SALT_BYTE ]  = {0};
 	memcpy( digest_salt , _digest , _HASH_LEN );
 	uint8_t * salt = digest_salt + _HASH_LEN;
 
-	uint8_t minus[_MINUS_BYTE] __attribute__((aligned(32)));
-	uint8_t vinegar[_VINEGAR_BYTE] __attribute__((aligned(32)));
-	prng_bytes( minus , _MINUS_BYTE );
-	prng_bytes( vinegar , _VINEGAR_BYTE );
+	uint8_t minus[_MINUS_BYTE*_K] ;
+	uint8_t vinegar[_VINEGAR_BYTE*_K] ;
+	prng_bytes( minus , _MINUS_BYTE*_K );
+	prng_bytes( vinegar , _VINEGAR_BYTE*_K );
 
 
-	uint8_t digest[(_PUB_M_BYTE)*_K] __attribute__((aligned(32)));
+	uint8_t digest[(_PUB_M_BYTE)*_K] ;
 	unsigned succ = 0;
 	unsigned time = 0;
 	do {

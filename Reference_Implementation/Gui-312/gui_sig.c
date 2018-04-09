@@ -133,6 +133,8 @@ unsigned _gui_sign_salt_core( uint8_t * signature , const uint8_t * sec_key , co
 		gf256v_add( dd , ss , _PUB_M_BYTE );
 
 		r = InvHFEv_( ss , (const gui_key *) sec_key , dd , minus , vinegar );
+		minus += _MINUS_BYTE;
+		vinegar += _VINEGAR_BYTE;
 		if( 0 == r ) return 0;
 
 		memcpy( s_tail[i] , ss + _PUB_M_BYTE , _TAIL_BYTE );
@@ -150,10 +152,10 @@ unsigned gui_sign_salt( uint8_t * signature , const uint8_t * sec_key , const ui
 	memcpy( digest_salt , _digest , _HASH_LEN );
 	uint8_t * salt = digest_salt + _HASH_LEN;
 
-	uint8_t minus[_MINUS_BYTE] ;
-	uint8_t vinegar[_VINEGAR_BYTE] ;
-	prng_bytes( minus , _MINUS_BYTE );
-	prng_bytes( vinegar , _VINEGAR_BYTE );
+	uint8_t minus[_MINUS_BYTE*_K] ;
+	uint8_t vinegar[_VINEGAR_BYTE*_K] ;
+	prng_bytes( minus , _MINUS_BYTE*_K );
+	prng_bytes( vinegar , _VINEGAR_BYTE*_K );
 
 
 	uint8_t digest[(_PUB_M_BYTE)*_K] ;

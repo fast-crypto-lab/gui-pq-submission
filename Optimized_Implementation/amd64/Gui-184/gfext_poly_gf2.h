@@ -11,6 +11,8 @@ extern  "C" {
 
 unsigned find_unique_root_sparse_poly( uint8_t * root , const uint8_t * sparse_poly , const unsigned * degree , unsigned n_sp_terms );
 
+unsigned find_random_root_sparse_poly( uint8_t * root , const uint8_t * sparse_poly , const unsigned * degree , unsigned n_sp_terms );
+
 
 #define _DEBUG_GFEXT_POLY_
 
@@ -23,7 +25,11 @@ void poly_fdump(FILE *fp, const uint8_t *poly, unsigned deg );
 
 void poly_normalize( uint8_t * rp , const uint8_t * p , unsigned deg );
 
+unsigned poly_mul_2( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , const uint8_t *p2 , unsigned p2deg );
+
 unsigned _get_deg1poly_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t * p2 , unsigned deg );
+
+unsigned _get_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t * p2 , unsigned deg );
 
 #endif
 

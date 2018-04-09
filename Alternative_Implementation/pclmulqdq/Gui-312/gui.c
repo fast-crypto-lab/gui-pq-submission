@@ -337,7 +337,8 @@ unsigned gui_ivs_central_map( uint8_t * x , const gui_key * sk , const uint8_t *
 
 	uint8_t _x[BGF_SIZE] __attribute__((aligned(16)));
 	unsigned ret = 0;
-	ret = find_unique_root_sparse_poly( _x , sp_c_poly , degree , C_TERMS );
+	///ret = find_unique_root_sparse_poly( _x , sp_c_poly , degree , C_TERMS );
+	ret = find_random_root_sparse_poly( _x , sp_c_poly , degree , C_TERMS );
 	///memcpy( x , _x , BGF_SIZE );
 	IVSISO( x , _x , BGF_SIZE*8 );
 	memcpy( x + BGF_SIZE , vinegar , _VINEGAR_BYTE );

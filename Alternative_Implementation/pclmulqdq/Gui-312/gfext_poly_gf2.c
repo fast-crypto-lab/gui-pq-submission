@@ -24,6 +24,8 @@
 #define _DEG_1 (_DEG-1)
 
 
+#define _CANTOR_ATTEMPT (128)
+
 
 
 ///////////////////////////////////
@@ -38,12 +40,12 @@ void poly_eval( uint8_t *val , const uint8_t * poly , unsigned deg , const uint8
 {
 	assert( deg < _MAX_TERMS );
 
-	uint8_t a_deg[_MAX_TERMS*_GFSIZE] __attribute__((aligned(16))) = {0};
+	uint8_t a_deg[_MAX_TERMS*_GFSIZE]  = {0};
 	memcpy( a_deg + _GFSIZE , a , _GFSIZE );
 	for(unsigned i=2;i<=deg;i++) BGFMUL( a_deg + i*_GFSIZE , a_deg + (i-1)*_GFSIZE , a );
 
 	memcpy(val,poly,_GFSIZE);
-	uint8_t temp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t temp[_GFSIZE] ;
 	for(unsigned i=1;i<=deg;i++) {
 		BGFMUL( temp , a_deg + i*_GFSIZE , poly + i*_GFSIZE );
 		gf256v_add( val , temp , _GFSIZE );
@@ -69,7 +71,7 @@ static inline
 void poly_normalize( uint8_t * rp , const uint8_t * p , unsigned deg )
 {
 
-	uint8_t temp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t temp[_GFSIZE] ;
 	/// normalize
 	BGFINV( temp , p + deg*_GFSIZE );
 	for( unsigned i=0;i<deg;i++) {
@@ -97,12 +99,27 @@ static inline void poly_mul( uint8_t *p3, const uint8_t *p1 , unsigned deg , con
 
 static inline void poly_muladd( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , unsigned p1raise , const uint8_t *c )
 {
-	uint8_t tmp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t tmp[_GFSIZE] ;
 	for(unsigned i=0;i<=p1deg;i++) {
 		BGFMUL(tmp,p1+i*_GFSIZE,c);
 		gf256v_add( p3+(i+p1raise)*_GFSIZE , tmp , _GFSIZE );
 	}
 }
+
+#ifndef _DEBUG_GFEXT_POLY_
+static inline
+#endif
+unsigned poly_mul_2( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , const uint8_t *p2 , unsigned p2deg )
+{
+	unsigned p3deg = p1deg + p2deg;
+	gf256v_add( p3 , p3 , _GFSIZE*(p3deg+1) );
+
+	for(unsigned i=0;i<=p2deg;i++) {
+		poly_muladd( p3 , p1 , p1deg , i , p2 + i*_GFSIZE );
+	}
+	return p3deg;
+}
+
 
 static inline void poly_add( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , unsigned p1raise )
 {
@@ -119,7 +136,7 @@ static inline void poly_add( uint8_t *p3, const uint8_t *p1 , unsigned p1deg , u
 static inline void poly_muladd_sp_poly( uint8_t * poly , const uint8_t * sparse_poly , const unsigned * degree , unsigned sp_terms , unsigned sp_raise ,
 		const uint8_t * c )
 {
-	uint8_t tmp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t tmp[_GFSIZE] ;
 	for(unsigned i=0;i<sp_terms;i++) {
 		BGFMUL(tmp,sparse_poly+i*_GFSIZE,c);
 		gf256v_add( poly + (degree[i]+sp_raise)*_GFSIZE , tmp , _GFSIZE );
@@ -169,13 +186,13 @@ static inline
 #endif
 unsigned _get_deg1poly_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t * p2 , unsigned deg )
 {
-	uint8_t buf1[_GFSIZE*_MAX_TERMS] __attribute__((aligned(16)));
-	uint8_t buf2[_GFSIZE*_MAX_TERMS] __attribute__((aligned(16)));
+	uint8_t buf1[_GFSIZE*_MAX_TERMS] ;
+	uint8_t buf2[_GFSIZE*_MAX_TERMS] ;
 
 	memcpy( buf1 , p1 , (deg+1)*_GFSIZE );
 	memcpy( buf2 , p2 , (deg+1)*_GFSIZE );
-	uint8_t h1[_GFSIZE] __attribute__((aligned(16)));
-	uint8_t h2[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t h1[_GFSIZE] ;
+	uint8_t h2[_GFSIZE] ;
 
 	for(unsigned d=deg;d>=1;d--){
 		memcpy(h1,buf1+d*_GFSIZE,_GFSIZE);
@@ -196,6 +213,48 @@ unsigned _get_deg1poly_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t *
 	unsigned succ3 = (gf256v_is_zero(buf2,_GFSIZE))?0:1;
 	unsigned succ4 = (gf256v_is_zero(buf2+_GFSIZE,_GFSIZE))?0:1;
 	return succ1&succ2&succ3&succ4;
+}
+
+
+#ifndef _DEBUG_GFEXT_POLY_
+static inline
+#endif
+unsigned _get_gcd( uint8_t * gcd , const uint8_t * p1 , const uint8_t * p2 , unsigned deg )
+{
+	uint8_t buf1[_GFSIZE*_MAX_TERMS];
+	uint8_t buf2[_GFSIZE*_MAX_TERMS];
+
+	memcpy( buf1 , p1 , (deg+1)*_GFSIZE );
+	memcpy( buf2 , p2 , (deg+1)*_GFSIZE );
+	unsigned deg1 = deg;
+	while( deg1>0 && gf256v_is_zero(buf1+deg1*_GFSIZE,_GFSIZE) ) deg1--;
+	unsigned deg2 = deg;
+	while( deg2>0 && gf256v_is_zero(buf2+deg2*_GFSIZE,_GFSIZE) ) deg2--;
+	uint8_t *ptr1 = buf1;
+	uint8_t *ptr2 = buf2;
+	if(deg2>deg1) {
+		unsigned temp = deg1; deg1 = deg2; deg2 = temp;
+		uint8_t * ptr = ptr1; ptr1 = ptr2; ptr2 = ptr;
+	}
+	uint8_t h1[_GFSIZE];
+	uint8_t h2[_GFSIZE];
+	while( deg2>0 ) {
+		memcpy(h1,ptr1+deg1*_GFSIZE,_GFSIZE);
+		memcpy(h2,ptr2+deg2*_GFSIZE,_GFSIZE);
+		poly_mul(ptr1,ptr1,deg1,h2);
+		poly_mul(ptr2,ptr2,deg2,h1);
+		poly_add(ptr1,ptr2,deg2,deg1-deg2);
+		while( deg1>0 && gf256v_is_zero(ptr1+deg1*_GFSIZE,_GFSIZE) ) deg1--;
+
+		if(deg2>deg1) {
+			unsigned temp = deg1; deg1 = deg2; deg2 = temp;
+			uint8_t * ptr = ptr1; ptr1 = ptr2; ptr2 = ptr;
+		}
+	}
+	unsigned has_gcd = gf256v_is_zero(ptr2,_GFSIZE);
+	if( !has_gcd ) return 0;
+	memcpy(gcd,ptr1,(deg1+1)*_GFSIZE);
+	return deg1;
 }
 
 
@@ -303,7 +362,7 @@ void _poly_squ_in_ideal( uint8_t * p2 , const uint8_t * p1 , const uint8_t **squ
 		}
 	}
 
-	uint8_t temp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t temp[_GFSIZE] ;
 	for(;i<_DEG;i++) {
 		BGFSQU( temp , p1+i*_GFSIZE );
 		for(unsigned j=1;j<_STEP;j++) {
@@ -367,10 +426,10 @@ void Calc_X_to_2_to_pow_in_ideal( uint8_t * Xext_X , unsigned pow , const uint8_
 unsigned find_unique_root_sparse_poly( uint8_t * root , const uint8_t * sparse_poly , const unsigned * degree , unsigned n_sp_terms )
 {
 
-	uint8_t ncpoly[ _TERMS*_GFSIZE] __attribute__((aligned(16)));
+	uint8_t ncpoly[ _TERMS*_GFSIZE] ;
 	poly_normalize( ncpoly , sparse_poly , n_sp_terms - 1 );
 
-	uint8_t Xext_X[_DEG*_GFSIZE] __attribute__((aligned(16)));
+	uint8_t Xext_X[_DEG*_GFSIZE] ;
 	Calc_X_to_2_to_pow_in_ideal( Xext_X , _GFSIZE*8 , ncpoly , degree , n_sp_terms );
 	Xext_X[_GFSIZE] ^= 1;  /// X^2^ext ``+ X''
 
@@ -378,15 +437,15 @@ unsigned find_unique_root_sparse_poly( uint8_t * root , const uint8_t * sparse_p
 	/// residue_poly = 1X^deg + ....
 	/// Xext_X = ?X^(deg-1) + .....
 
-	uint8_t residue_poly[_TERMS*_GFSIZE] __attribute__((aligned(16))) = {0};
+	uint8_t residue_poly[_TERMS*_GFSIZE]  = {0};
 	poly_add_sp_poly( residue_poly , ncpoly , degree , n_sp_terms , 0 );
 	poly_mul( residue_poly , residue_poly , _DEG_1 , Xext_X+_DEG_1*_GFSIZE ); /// omit the term of max degree
 	poly_add( residue_poly , Xext_X , _DEG_1 , 1 );
 
-	uint8_t deg1_poly[2*_GFSIZE] __attribute__((aligned(16)));
+	uint8_t deg1_poly[2*_GFSIZE] ;
 	unsigned r = _get_deg1poly_gcd( deg1_poly , residue_poly , Xext_X , _DEG_1 );
 
-	uint8_t temp[_GFSIZE] __attribute__((aligned(16)));
+	uint8_t temp[_GFSIZE] ;
 	BGFINV( temp , deg1_poly + _GFSIZE );
 	BGFMUL( root , temp , deg1_poly );
 
@@ -397,6 +456,111 @@ unsigned find_unique_root_sparse_poly( uint8_t * root , const uint8_t * sparse_p
 //////////////////////////////////////////////////////////////
 
 
+
+/// mod normalized polynomial
+static inline void poly_square_mod_poly( uint8_t * rpoly , const uint8_t * poly , const uint8_t * nor_poly , unsigned deg_nor_poly )
+{
+	BGFSQU(rpoly,poly);
+	for(unsigned i=1;i<deg_nor_poly;i++) {
+		gf256v_add( rpoly+(i*2-1)*_GFSIZE , rpoly+(i*2-1)*_GFSIZE , _GFSIZE ); /// set zero
+		BGFSQU(rpoly+(i*2)*_GFSIZE,poly+i*_GFSIZE);
+	}
+
+	for(int i=(deg_nor_poly-1)*2-deg_nor_poly; i>=0;i--) {
+		poly_muladd( rpoly , nor_poly  , deg_nor_poly-1 , i , rpoly+(deg_nor_poly+i)*_GFSIZE );
+	}
+}
+
+#include "prng_utils.h"
+
+static
+unsigned _get_random_deg1_factors( uint8_t * p1 , const uint8_t * nor_poly , unsigned deg )
+{
+	if( 1 >= deg ) {
+		memcpy( p1 , nor_poly , _GFSIZE * (deg+1 ) );
+		return deg;
+	}
+
+	uint8_t * random_poly = (uint8_t *) malloc( (deg+1)*_GFSIZE );
+	uint8_t * buf1 = (uint8_t *) malloc( 2*deg*_GFSIZE );
+	uint8_t * buf2 = (uint8_t *) malloc( 2*deg*_GFSIZE );
+
+	unsigned r = deg;
+	unsigned j=0;
+	while( r==deg && j<_CANTOR_ATTEMPT ) {
+		j++;
+		/// generate random poly
+		prng_bytes( random_poly , deg*_GFSIZE );
+		for(unsigned k=0;k<deg;k++) ISO( random_poly+k*_GFSIZE , random_poly+k*_GFSIZE , _GFSIZE*8 );
+		memset( random_poly + deg*_GFSIZE , 0 , _GFSIZE );
+
+		memcpy( buf1 , random_poly , deg*_GFSIZE );
+
+		uint8_t * ptr1 = buf1;
+		uint8_t * ptr2 = buf2;
+		/// calculate trace polynomial
+		for(unsigned i=1; i< _GFSIZE*8; i++ ) {
+			poly_square_mod_poly( ptr2 , ptr1, nor_poly , deg );
+			poly_add( random_poly , ptr2 , deg-1 , 0 ); /// accumulate to trance polynomial
+
+			uint8_t * ptr_tmp=ptr1;
+			ptr1=ptr2;
+			ptr2=ptr_tmp;
+		}
+		/// trace poly - 1
+		random_poly[0] ^= 1;
+		r = _get_gcd( p1 , random_poly , nor_poly , deg );
+		if( 0 == r ) r = deg;
+	}
+
+	// clean
+	free( random_poly );
+	free( buf1 );
+	free( buf2 );
+
+	return r;
+}
+
+
+
+unsigned find_random_root_sparse_poly( uint8_t * root , const uint8_t * sparse_poly , const unsigned * degree , unsigned n_sp_terms )
+{
+
+	uint8_t ncpoly[ _TERMS*_GFSIZE] ;
+	poly_normalize( ncpoly , sparse_poly , n_sp_terms - 1 );
+
+	uint8_t Xext_X[_DEG*_GFSIZE] ;
+	Calc_X_to_2_to_pow_in_ideal( Xext_X , _GFSIZE*8 , ncpoly , degree , n_sp_terms );
+	Xext_X[_GFSIZE] ^= 1;  /// X^2^ext ``+ X''
+
+	/// GCD start:
+	/// residue_poly = 1X^deg + ....
+	/// Xext_X = ?X^(deg-1) + .....
+
+	uint8_t residue_poly[_TERMS*_GFSIZE]  = {0};
+	poly_add_sp_poly( residue_poly , ncpoly , degree , n_sp_terms , 0 );
+	poly_mul( residue_poly , residue_poly , _DEG_1 , Xext_X+_DEG_1*_GFSIZE ); /// omit the term of max degree
+	poly_add( residue_poly , Xext_X , _DEG_1 , 1 );
+
+	uint8_t * p1 = ncpoly;
+	uint8_t * p2 = residue_poly;
+	uint8_t * temp_p;
+	unsigned r = _get_gcd( p1 , residue_poly , Xext_X , _DEG_1 );
+	poly_normalize( p2 , p1 , r );
+	temp_p = p1; p1 = p2; p2 = temp_p; /// swap
+	if( 0 == r ) return r;
+
+	while( 1 < r ) {
+		unsigned r1 = _get_random_deg1_factors( p2 , p1 , r );
+		if( r == r1 ) break;
+		r = r1;
+		poly_normalize( p1 , p2 , r );
+	}
+	memcpy( root , p1 , _GFSIZE );
+
+	//return r;
+	return (1==r)? 1:0;
+}
 
 
 
